@@ -1,0 +1,21 @@
+#! /bin/bash
+
+## installation.
+
+sudo apt-get update
+
+################Install OpenSSL libraries###########################
+sudo apt-get install libssl-dev
+
+sudo apt-get -y install python3-pip
+######## To install the dependencies ###########
+pip3 install -r utils/requirements.txt
+
+####upgrade cryptography python module ####
+pip3 install cryptography -U
+
+
+
+
+
+
