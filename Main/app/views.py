@@ -3,7 +3,7 @@ from app import app
 from flask import Flask, abort
 from .getRandom import getRandom #For Random Number
 from .keyGen import keyGenPair #For Key Generation
-from .cryptoGen import RSA_EncryptData,RSA_DecryptData,EncryptData,DecryptData,hash_msg,gencert_content
+from .cryptoGen import RSA_EncryptData,RSA_DecryptData,EncryptData,DecryptData,hash_msg,gencert_content,genDSA,veriDSA
 import base64,os
 
 
@@ -249,6 +249,62 @@ def genCert():
 
     return jsonify(data),201
 
+'''API for Digital Signatures'''
+@app.route('/api/v1.0/genSignature',methods=['POST'])
+def genSignature():
 
+    #Initial Checks
+    #Check if the request is properly formatted.
+    if not request.json or not all (k in request.json for k in ('message','private_key','algorithm')):
+        abort(400)
 
+    #getting the JSON parameters from POST request
+    json_dict=request.get_json()
+    message=json_dict['message']
+    private_key=json_dict['private_key']
 
+    algorithm=json_dict['algorithm']
+
+    private_key = base64.b64decode(private_key.encode())
+
+    #lets call the genDSA
+    result,signature,status=genDSA(base64.b64decode(message.encode()),private_key,algorithm)
+
+    if result:
+        data={'result':1,'signature':base64.b64encode(signature).decode()}
+    else:
+        data={'result':0,'status':status}
+
+    return jsonify(data),201
+
+'''API for Digital verification'''
+@app.route('/api/v1.0/veriSignature',methods=['POST'])
+def veriSignature():
+
+    #Initial Checks
+    #Check if the request is properly formatted.
+    if not request.json or not all (k in request.json for k in ('signature','message','public_key','algorithm')):
+        abort(400)
+
+    #getting the JSON parameters from POST request
+    json_dict=request.get_json()
+    signature=json_dict['signature']
+    message = json_dict['message']
+    public_key=json_dict['public_key']
+
+    algorithm=json_dict['algorithm']
+
+    #Get the parameters in bytes
+    public_key = base64.b64decode(public_key.encode())
+    signature=base64.b64decode(signature.encode())
+    message=base64.b64decode(message.encode())
+
+    #lets call the genDSA
+    result,status=veriDSA(signature,message,public_key,algorithm)
+
+    if result:
+        data={'result':1,'status':status}
+    else:
+        data={'result':0,'status':status}
+
+    return jsonify(data),201

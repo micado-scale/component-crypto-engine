@@ -1,6 +1,6 @@
 from cryptography.hazmat.backends import default_backend
 from cryptography.hazmat.primitives import serialization,hashes
-from cryptography.hazmat.primitives.asymmetric import padding
+from cryptography.hazmat.primitives.asymmetric import padding,utils,ec
 from cryptography.hazmat.primitives import hashes
 from cryptography.hazmat.primitives.ciphers import Cipher, algorithms, modes
 import base64,datetime,os
@@ -96,6 +96,9 @@ def key_loader(key:bytes,type,password:bytes=None):
             try:
                 key = getattr(serialization, "load_der_{}_key".format(type))(*parameters)
                 result = True
+                if not key.key_size in app.config['CONF_ASYMMETRIC'].get('keysize'):
+                    key=""
+                    result=False
             except ValueError:
                 key = ""
                 result = False
@@ -375,7 +378,71 @@ def gencert_content(entity,cert_type,private_key:bytes):
     else:
         return (False,"","Certificate could not be generated.")
 
+'''This function is in charge of the computation of signature given a
+message,a private key and a algortihm.'''
+def genDSA(message:bytes,private_key:bytes,algorithm="RSA",hashing=hashes.SHA256()):
 
+    #Load the private_key to the crypto engine.
+    result,private_key=key_loader(private_key,'private')
+
+    if not result:
+        return (False,"","Key could not be loaded")
+
+    #Handle Digital based on algorithm
+    if algorithm.upper() == 'RSA':
+        #Create a hash object
+        hasher=hashes.Hash(hashing,backend)
+
+        #Start to compute the hash
+        hasher.update(message)
+
+        #Get the digest
+        digest=hasher.finalize()
+
+        #Sign the digest with private_key
+        sig=private_key.sign(digest,padding.PSS(
+            mgf=padding.MGF1(hashes.SHA256()),
+            salt_length=padding.PSS.MAX_LENGTH),
+                         utils.Prehashed(hashes.SHA256()))
+        return (True,sig,"OK")
+
+    elif algorithm.upper() == 'ECDSA':
+        sig=private_key.sign(message,ec.ECDSA(hashes.SHA256()))
+        return(True,sig,"OK")
+    else:
+        return (False,"","Algorithm {} not supported".format(algorithm))
+
+'''This function is in charge of the computation of signature given a
+message,a private key and a algortihm.'''
+def veriDSA(signature:bytes,message:bytes,public_key:bytes,algorithm="RSA",hashing=hashes.SHA256()):
+
+    #Load the private_key to the crypto engine.
+    result,public_key=key_loader(public_key,'public')
+
+    if not result:
+        return (False,"Key could not be loaded")
+
+    #Handle Digital based on algorithm
+    if algorithm.upper() == 'RSA':
+        try:
+            public_key.verify(signature,message,padding.PSS(
+                mgf=padding.MGF1(hashing),
+                salt_length=padding.PSS.MAX_LENGTH
+            ),
+            hashing)
+            return (True,"OK")
+
+        except crypto_exception.InvalidSignature as error:
+            return (False,"Verification failed")
+
+    elif algorithm.upper() == 'ECDSA':
+        try:
+            public_key.verify(signature,message,ec.ECDSA(hashes.SHA256()))
+            return(True,"OK")
+        except crypto_exception.InvalidSignature as error:
+            return (False,"Verification failed")
+    else:
+        return (False,"Algorithm {} not supported".format(algorithm))
 
 
 
