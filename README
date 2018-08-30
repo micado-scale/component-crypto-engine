@@ -1,5 +1,7 @@
+CRYPTO ENGINE
+*********************************
 To install please run:
 ./INSTALL
 
-To run:
+To run the Engine:
 ./startup
