@@ -1,6 +1,6 @@
 #! /bin/bash
 
-python3 cryptoEngine/run.py
+python3 Main/run.py
 
 
 
